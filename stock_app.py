@@ -28,13 +28,60 @@ def api_retry(func, max_retries=3, delay=2):
                 raise
 
 
-# ── 页面配置 ──
-st.set_page_config(page_title="市场分析", page_icon="📈", layout="wide")
-st.title("📈 市场分析")
+# ── 【手机端适配】页面核心配置 ──
+st.set_page_config(
+    page_title="股票策略分析",
+    page_icon="📈",
+    layout="centered",  # 手机端用居中布局，禁用宽屏
+    initial_sidebar_state="collapsed",  # 手机默认收起侧边栏
+    menu_items={
+        'Get Help': None,
+        'Report a bug': None,
+        'About': None
+    }
+)
+
+# 手机端全局样式优化（字体、按钮、间距）
+st.markdown("""
+<style>
+/* 适配手机屏幕宽度 */
+.block-container {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    max-width: 100% !important;
+}
+/* 按钮占满宽度，适合手指点击 */
+.stButton > button {
+    width: 100%;
+    height: 3rem;
+    font-size: 1.1rem;
+    border-radius: 0.5rem;
+}
+/* 表格适配手机宽度，禁止横向滚动 */
+.stDataFrame {
+    width: 100% !important;
+    overflow-x: auto;
+}
+/* 缩小标题间距，节省手机屏幕 */
+h1, h2, h3 {
+    margin-top: 0.5rem !important;
+    margin-bottom: 0.5rem !important;
+}
+/* 优化tab栏手机显示 */
+.stTabs [role="tab"] {
+    font-size: 0.9rem;
+    padding: 0.5rem 0.3rem;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.title("📈 股票策略分析")
 
 
 # ════════════════════════════════════════════
-#  核心分析逻辑（从 测试py 迁移）
+#  核心分析逻辑（原逻辑完全保留，仅优化显示）
 # ════════════════════════════════════════════
 
 def _call_with_timeout(func, timeout=15, *args, **kwargs):
@@ -932,16 +979,7 @@ def run_end_of_day_pick(progress_cb=None):
 # ════════════════════════════════════════════
 
 def get_csi300_pe_data():
-    """获取沪深300指数近15年PE分位值数据
-
-    数据来源：
-    - 乐股(legulegu.com)：20年PE历史序列（用于分位值计算和走势图）
-    - 中证指数有限公司(csindex.com.cn)：官方每日PE值（用于当前PE）
-
-    两个来源的PE值存在约8%的差异（中证指数PE高于乐股），
-    原因是财报数据更新节奏和计算方法不同。
-    分位值基于乐股数据计算以保持历史一致性。
-    """
+    """获取沪深300指数近15年PE分位值数据"""
     now = datetime.datetime.now()
     result = None
 
@@ -1066,36 +1104,34 @@ def get_csi300_pe_data():
 
 
 # ════════════════════════════════════════════
-#  页面布局
+#  【手机端适配】页面布局
 # ════════════════════════════════════════════
 
 # ── 全局扫描状态（防止重复点击） ──
 if 'scanning' not in st.session_state:
     st.session_state.scanning = False
 
-tab1, tab2, tab3, tab4 = st.tabs(["📊 一进二策略", "📉 均线回踩", "⏰ 尾盘买入", "📊 沪深300 28法"])
+tab1, tab2, tab3, tab4 = st.tabs(["📊 一进二", "📉 均线回踩", "⏰ 尾盘", "📊 28交易法"])
 
 # ──────────── Tab 1: 一进二策略 ────────────
 
 with tab1:
-    st.subheader("今日首板一进二推荐")
+    st.subheader("首板一进二推荐")
 
-    with st.expander("💡 策略说明"):
+    with st.expander("💡 策略说明", expanded=False):
         st.markdown("""
-        **逻辑**：从当日涨停板中筛选出**首板股票**（非一字板），综合评分选出最可能次日连板的标的。
+        **逻辑**：从当日涨停板中筛选出首板股票，综合评分选出最可能次日连板的标的。
 
         **评分因子**：
-        1. 🏆 **历史策略匹配**（+40分） — 最优历史一进二策略命中
-        2. 🔥 **热门板块**（+25分） — 属于当日资金流入热门板块
-        3. 🔒 **一封到底**（+15分） — 封板后未炸板，封单坚决
-        4. 💰 **高封单比**（+10分） — 封单资金 / 流通市值 排名前30%
-        5. 📊 **板块热度**（+10分） — 所属行业板块涨停家数多
-
-        **历史分析**：回测历史首板数据，自动选择胜率最高的策略组合
+        1. 🏆 历史策略匹配（+40分）
+        2. 🔥 热门板块（+25分）
+        3. 🔒 一封到底（+15分）
+        4. 💰 高封单比（+10分）
+        5. 📊 板块热度（+10分）
         """)
 
     scan_btn = st.button("🔍 开始扫描", type="primary", key="scan_yijin",
-                         disabled=st.session_state.scanning, width='stretch')
+                         disabled=st.session_state.scanning, use_container_width=True)
 
     if scan_btn:
         st.session_state.scanning = True
@@ -1125,21 +1161,21 @@ with tab1:
         info = result
         display_df = info['display']
 
-        meta_cols = st.columns(5)
-        meta_cols[0].metric("分析日期", info['analysis_date'])
-        meta_cols[1].metric("涨停总数", info['total_zt'])
-        meta_cols[2].metric("首板股票", info['first_board_count'])
-        meta_cols[3].metric("一字板(排除)", info['yizi_count'])
-        meta_cols[4].metric("推荐买入", info['buy_day'])
+        # 【手机适配】指标改成2行，每行最多3列
+        row1 = st.columns(3)
+        row1[0].metric("分析日期", info['analysis_date'])
+        row1[1].metric("涨停总数", info['total_zt'])
+        row1[2].metric("首板股票", info['first_board_count'])
+        row2 = st.columns(2)
+        row2[0].metric("一字板(排除)", info['yizi_count'])
+        row2[1].metric("推荐买入", info['buy_day'])
 
         if info['best_strategy']:
             bs = info['best_strategy']
-            st.info(f"🏆 **最佳策略**: {bs['name']}　|　"
-                    f"历史一进二胜率: **{bs['win_rate']*100:.1f}%**　|　"
-                    f"样本量: {bs['samples']} 次")
+            st.info(f"🏆 **最佳策略**: {bs['name']}　|　胜率: **{bs['win_rate']*100:.1f}%**")
 
         if info['hot_sectors']:
-            st.info(f"🔥 **热门板块**: {'、'.join(info['hot_sectors'][:8])}")
+            st.info(f"🔥 **热门板块**: {'、'.join(info['hot_sectors'][:5])}")
 
         st.subheader("Top 5 推荐")
         cols = [c for c in display_df.columns if c not in ['总分', '标记']]
@@ -1148,60 +1184,49 @@ with tab1:
 
         st.dataframe(
             display_df,
-            width='stretch',
+            use_container_width=True,
             hide_index=True,
             column_config={
                 '总分': st.column_config.NumberColumn("总分", format="%d"),
-                '换手率%': st.column_config.NumberColumn("换手率%", format="%.1f"),
-                '流通市值亿': st.column_config.NumberColumn("流通市值亿", format="%.1f"),
-                '封单比%': st.column_config.NumberColumn("封单比%", format="%.2f"),
+                '换手率%': st.column_config.NumberColumn("换手%", format="%.1f"),
+                '流通市值亿': st.column_config.NumberColumn("市值亿", format="%.1f"),
             },
         )
 
-        st.subheader("推荐股票评分对比")
-        chart_data = display_df.copy()
-        chart_data['股票'] = chart_data['名称'] + '(' + chart_data['代码'] + ')'
-        st.bar_chart(chart_data, x='股票', y='总分')
-
-        with st.expander(f"查看全部 {len(info['candidates'])} 只候选首板评分"):
+        with st.expander(f"查看全部 {len(info['candidates'])} 只候选", expanded=False):
             all_display = info['candidates'][
-                ['代码', '名称', '换手率', 'circ_mv', '首次封板时间', '所属行业', 'score', 'one_seal', 'sector_heat']
+                ['代码', '名称', '换手率', 'circ_mv', '所属行业', 'score']
             ].copy()
-            all_display.columns = ['代码', '名称', '换手率%', '流通市值亿', '封板时间', '所属行业', '总分', '一封到底', '板块热度']
+            all_display.columns = ['代码', '名称', '换手%', '市值亿', '行业', '总分']
             all_display = all_display.sort_values('总分', ascending=False)
-            st.dataframe(all_display, width='stretch', hide_index=True)
+            st.dataframe(all_display, use_container_width=True, hide_index=True)
 
     elif not scan_btn:
-        st.info("点击「开始扫描」按钮，系统将分析今日首板一进二机会")
+        st.info("点击「开始扫描」分析今日首板一进二机会")
 
 # ──────────── Tab 2: 均线回踩 ────────────
 
 with tab2:
-    st.subheader("📉 均线回踩低吸策略")
+    st.subheader("均线回踩低吸策略")
 
-    with st.expander("💡 策略说明"):
+    with st.expander("💡 策略说明", expanded=False):
         st.markdown("""
-        **适用人群**：上班族，没时间盯盘
-
         **逻辑**：
-        1. 股价在 **上升趋势** 中（MA20 > MA60，多头排列）
-        2. 近期 **回踩到 MA10 支撑位** 但没跌破
-        3. 回踩时 **缩量**（不是主力出货）
-        4. MACD 未死叉（趋势未破坏）
+        1. 上升趋势（MA20 > MA60，多头排列）
+        2. 回踩到 MA10 支撑位但没跌破
+        3. 回踩时缩量（不是主力出货）
+        4. MACD 未死叉
 
-        **操作建议**：
-        - 在 MA10 附近分批低吸
-        - 跌破 MA20 止损
-        - 反弹到前高或放量滞涨时止盈
+        **操作**：MA10附近分批低吸，跌破MA20止损
         """)
 
     scan_btn = st.button("🔍 开始扫描", type="primary", key="scan_ma",
-                         disabled=st.session_state.scanning, width='stretch')
+                         disabled=st.session_state.scanning, use_container_width=True)
 
     if scan_btn:
         st.session_state.scanning = True
         try:
-            with st.status("扫描均线回踩机会...", expanded=True) as status:
+            with st.status("扫描中...", expanded=True) as status:
                 prog = st.progress(0, text="0%")
                 def update_ma(pct, msg):
                     status.update(label=f"**{msg}**", state="running")
@@ -1211,118 +1236,74 @@ with tab2:
 
                 if err:
                     status.update(label=f"❌ {err}", state="error")
-                    st.error(f"**错误详情**：{err}")
-                    with st.expander("🔧 排查建议"):
-                        st.markdown("""
-                        1. **网络问题**：东方财富数据接口可能暂时不稳定，等待 1-2 分钟后重试
-                        2. **接口变更**：如果持续报错，可能是 akshare 版本过旧，终端运行以下命令更新：
-                           ```
-                           pip install --upgrade akshare
-                           ```
-                        3. 详情请查看终端中的日志输出
-                        """)
-                    if st.button("🔄 重试", type="primary", key="retry_ma"):
-                        st.cache_data.clear()
-                        st.session_state.pop('spot_cache', None)
-                        st.rerun()
+                    st.error(f"错误：{err}")
                     st.session_state.ma_result = None
                 elif result_df.empty:
-                    status.update(label="⚠️ 今日未找到符合条件的股票", state="error")
-                    st.info("今日没有符合均线回踩条件的股票，换个交易日再试")
+                    status.update(label="⚠️ 今日无符合条件股票", state="error")
+                    st.info("今日没有符合均线回踩条件的股票")
                     st.session_state.ma_result = None
                 else:
-                    status.update(label=f"✅ 发现 {len(result_df)} 只均线回踩候选股", state="complete")
+                    status.update(label=f"✅ 发现 {len(result_df)} 只", state="complete")
                     st.session_state.ma_result = result_df
         finally:
             st.session_state.scanning = False
 
-    # 显示结果（优先使用 session_state 持久化）
     ma_result = st.session_state.get('ma_result')
     if ma_result is not None and not ma_result.empty:
         result_df = ma_result
 
-        # 指标展示
         col1, col2, col3 = st.columns(3)
-        col1.metric("候选股数", len(result_df))
-        col2.metric("距MA10最近", f"{result_df['距MA10%'].min():+.2f}%")
+        col1.metric("候选数", len(result_df))
+        col2.metric("距MA10最近", f"{result_df['距MA10%'].min():+.1f}%")
         col3.metric("平均量比", f"{result_df['量比(均)'].mean():.2f}")
 
-        st.subheader("均线回踩候选股")
-
-        display_cols = ['代码', '名称', '现价', 'MA10', 'MA20',
-                        '距MA10%', '距MA20%', '量比(均)', '涨幅%', '总分']
-
+        st.subheader("候选股")
+        display_cols = ['代码', '名称', '现价', '距MA10%', '量比(均)', '总分']
         avail_cols = [c for c in display_cols if c in result_df.columns]
         display_df = result_df[avail_cols].copy()
 
         st.dataframe(
             display_df,
-            width='stretch',
+            use_container_width=True,
             hide_index=True,
-            column_config={
-                '现价': st.column_config.NumberColumn("现价", format="%.2f"),
-                'MA10': st.column_config.NumberColumn("MA10", format="%.2f"),
-                'MA20': st.column_config.NumberColumn("MA20", format="%.2f"),
-                '距MA10%': st.column_config.NumberColumn("距MA10%", format="%+.2f"),
-                '距MA20%': st.column_config.NumberColumn("距MA20%", format="%+.2f"),
-                '量比(均)': st.column_config.NumberColumn("量比(均值)", format="%.2f"),
-                '涨幅%': st.column_config.NumberColumn("当日涨幅%", format="%+.2f"),
-                '总分': st.column_config.NumberColumn("综合评分", format="%.1f"),
-            },
         )
 
-        # 最佳候选推荐
         st.subheader("🏆 最佳 3 只")
         top3 = display_df.head(3)
         for i, (_, row) in enumerate(top3.iterrows()):
-            tags = []
-            if row.get('距MA10%', 0) <= 0:
-                tags.append("已触及MA10支撑")
-            elif row.get('距MA10%', 0) < 2:
-                tags.append(f"接近MA10（{row['距MA10%']:+.1f}%）")
-            if row.get('量比(均)', 2) < 1:
-                tags.append("缩量回踩")
-            tags.append(f"评分{row['总分']:.0f}")
-            st.success(f"**{i+1}. {row['名称']} ({row['代码']})** — {' | '.join(tags)}")
+            st.success(f"**{i+1}. {row['名称']} ({row['代码']})**")
 
-        st.info("📌 **操作建议**：以上股票在 MA10 附近可分批低吸，设 MA20 为止损位")
+        st.info("📌 操作建议：MA10附近分批低吸，MA20为止损位")
 
     elif not scan_btn:
-        st.info("点击「开始扫描」按钮，系统将从全市场筛选均线回踩到 MA10 支撑位的股票")
+        st.info("点击「开始扫描」筛选均线回踩标的")
 
 
 # ──────────── Tab 3: 尾盘买入 ────────────
 
 with tab3:
-    st.subheader("⏰ 尾盘买入法（14:30 策略）")
+    st.subheader("尾盘买入法（14:30策略）")
 
-    with st.expander("💡 策略说明"):
+    with st.expander("💡 策略说明", expanded=False):
         st.markdown("""
-        **适用时间**：每个交易日 **14:30** 运行（尾盘确认信号）
+        **适用时间**：每个交易日14:30运行
 
         **选股规则**：
-        1. 🔄 **换手率 3%-15%** — 交投活跃，有主力参与
-        2. 📈 **分时均线在黄线以上** — 价格强于全天均价，非脉冲拉升
-        3. 📊 **量比 2-5倍** — 温和放量，非异常巨量
-        4. 💹 **涨幅 3%-6%** — 有拉升但未封板，留明日空间
-        5. 💰 **流通市值 50亿-300亿** — 中盘股，弹性好
-        6. 🏆 **20天内有过涨停** — 有主力活跃痕迹，股性好
-
-        **60开头（上海主板）优先** — 上海主板股票加分
-
-        **操作建议**：
-        - 14:30 后选股，尾盘确认不回落可轻仓介入
-        - 次日开盘不及预期（低开3%+）及时止损
-        - 次日冲高不封板可止盈
+        1. 换手率3%-15%
+        2. 价格在分时均线以上
+        3. 量比2-5倍
+        4. 涨幅3%-6%
+        5. 流通市值50亿-300亿
+        6. 20天内有过涨停
         """)
 
     pick_btn = st.button("🔍 开始选股", type="primary", key="pick_endday",
-                         disabled=st.session_state.scanning, width='stretch')
+                         disabled=st.session_state.scanning, use_container_width=True)
 
     if pick_btn:
         st.session_state.scanning = True
         try:
-            with st.status("尾盘买入法选股中...", expanded=True) as status:
+            with st.status("选股中...", expanded=True) as status:
                 prog = st.progress(0, text="0%")
                 def update_pick(pct, msg):
                     status.update(label=f"**{msg}**", state="running")
@@ -1332,110 +1313,79 @@ with tab3:
 
                 if err:
                     status.update(label=f"❌ {err}", state="error")
-                    st.error(f"**{err}**")
-                    if st.button("🔄 重试", type="primary", key="retry_endday"):
-                        st.cache_data.clear()
-                        st.session_state.pop('spot_cache', None)
-                        st.rerun()
+                    st.error(f"{err}")
                     st.session_state.endday_result = None
                 elif result_df.empty:
-                    status.update(label="⚠️ 今日无符合条件的股票", state="error")
-                    st.info("没有同时满足换手率3%-15%、量比2-5、涨幅3-6%、近期涨停等条件的股票，换个交易日再试")
+                    status.update(label="⚠️ 今日无符合条件股票", state="error")
+                    st.info("没有满足条件的股票，换个交易日再试")
                     st.session_state.endday_result = None
                 else:
-                    status.update(label=f"✅ 发现 {len(result_df)} 只尾盘候选股", state="complete")
+                    status.update(label=f"✅ 发现 {len(result_df)} 只", state="complete")
                     st.session_state.endday_result = result_df
         finally:
             st.session_state.scanning = False
 
-    # 显示结果
     endday_result = st.session_state.get('endday_result')
     if endday_result is not None and not endday_result.empty:
         result_df = endday_result
 
-        # 指标
-        col1, col2, col3 = st.columns(3)
-        col1.metric("候选股数", len(result_df))
-        col2.metric("60开头占比", f"{result_df['60优先'].sum()}/{len(result_df)}")
-        avg_turnover = result_df['换手率%'].mean()
-        col3.metric("平均换手率", f"{avg_turnover:.1f}%")
+        col1, col2 = st.columns(2)
+        col1.metric("候选数", len(result_df))
+        col2.metric("平均换手率", f"{result_df['换手率%'].mean():.1f}%")
 
-        st.subheader("尾盘买入候选股")
-
+        st.subheader("候选股")
         st.dataframe(
             result_df,
-            width='stretch',
+            use_container_width=True,
             hide_index=True,
             column_config={
                 '现价': st.column_config.NumberColumn("现价", format="%.2f"),
-                '涨幅%': st.column_config.NumberColumn("涨幅%", format="%+.2f"),
-                '换手率%': st.column_config.NumberColumn("换手率%", format="%.1f"),
-                '量比': st.column_config.NumberColumn("量比", format="%.2f"),
-                '流通市值亿': st.column_config.NumberColumn("流通市值亿", format="%.1f"),
-                '60优先': st.column_config.CheckboxColumn("60优先"),
+                '涨幅%': st.column_config.NumberColumn("涨幅%", format="%+.1f"),
+                '换手率%': st.column_config.NumberColumn("换手%", format="%.1f"),
             },
         )
 
-        # Top 推荐
         st.subheader("🏆 首推")
         top = result_df.head(3)
         for i, (_, row) in enumerate(top.iterrows()):
-            tags = [f"换手{row['换手率%']}%", f"量比{row['量比']}", f"涨幅{row['涨幅%']}%"]
-            if row['60优先']:
-                tags.append("沪市主板")
-            st.success(f"**{i+1}. {row['名称']} ({row['代码']})** — {' | '.join(tags)}")
+            st.success(f"**{i+1}. {row['名称']} ({row['代码']})**")
 
-        st.info("📌 **操作建议**：14:30 后确认价格站稳分时均线，轻仓介入，止损设-3%")
+        st.info("📌 操作建议：14:30后确认站稳分时均线，轻仓介入，止损-3%")
 
     elif not pick_btn:
-        st.info("点击「开始选股」按钮，系统将按尾盘买入法筛选符合条件的股票")
+        st.info("点击「开始选股」筛选尾盘标的")
 
 
 # ──────────── Tab 4: 沪深300 28交易法 ────────────
 
 with tab4:
-    st.subheader("📊 沪深300 28交易法")
+    st.subheader("沪深300 28交易法")
 
-    with st.expander("💡 策略说明"):
+    with st.expander("💡 策略说明", expanded=False):
         st.markdown("""
-        **核心指标**：沪深300指数近15年PE分位值
-
-        PE分位值代表当前市盈率在近15年中所处的位置（0%~100%）。
-        分位值 **≤20%** → 低估区，**≥80%** → 高估区。
-
-        **操作规则**：
-        1. 📉 **买入信号**：PE分位值 ≤ 20% → **全仓买入**沪深300指数基金
-        2. 📈 **卖出信号**：PE分位值 ≥ 80% → **清仓卖出**，等待下一次买入
-
-        **历史成绩**：过去15年仅触发3次买点、3次卖点，平均持仓27个月。
-        极低交易频率，适合没时间盯盘的普通投资者。
+        **规则**：
+        1. PE分位值 ≤20% → 全仓买入
+        2. PE分位值 ≥80% → 清仓卖出
+        3. 中间区间 → 持有不动
         """)
 
-    # 刷新按钮
-    refresh_col1, refresh_col2 = st.columns([1, 5])
-    with refresh_col1:
-        refresh_btn = st.button("🔄 刷新数据", type="primary", key="refresh_csi",
-                                disabled=st.session_state.scanning)
+    refresh_btn = st.button("🔄 刷新数据", type="primary", key="refresh_csi",
+                            disabled=st.session_state.scanning, use_container_width=True)
 
-    with refresh_col2:
-        if 'csi300_loaded' in st.session_state and st.session_state.csi300_loaded:
-            st.caption(f"数据更新于: {st.session_state.get('csi300_time', '—')}")
-
-    # 加载/刷新数据
     if refresh_btn or 'csi300_data' not in st.session_state:
         st.session_state.scanning = True
         try:
-            with st.status("获取沪深300估值数据...", expanded=True) as status:
+            with st.status("获取估值数据...", expanded=True) as status:
                 prog = st.progress(0, text="加载中...")
-                prog.progress(0.3, text="获取数据中（约10-20秒）...")
+                prog.progress(0.3, text="获取数据中...")
                 data = _call_with_timeout(get_csi300_pe_data, 60)
-                prog.progress(0.9, text="数据处理中...")
+                prog.progress(0.9, text="处理中...")
 
                 if data is not None:
                     st.session_state.csi300_data = data
                     st.session_state.csi300_loaded = True
                     st.session_state.csi300_time = datetime.datetime.now().strftime('%H:%M:%S')
-                    status.update(label="✅ 数据加载完成", state="complete")
+                    status.update(label="✅ 加载完成", state="complete")
                 else:
                     st.session_state.csi300_data = None
                     status.update(label="❌ 加载失败", state="error")
@@ -1443,175 +1393,49 @@ with tab4:
         finally:
             st.session_state.scanning = False
 
-    # 显示数据
     data = st.session_state.get('csi300_data')
     if data is None and 'csi300_loaded' in st.session_state:
-        st.error("❌ 获取沪深300数据失败，请检查网络后重试")
+        st.error("❌ 获取数据失败，请重试")
     elif data is not None:
         df = data['df']
 
-        # ── 当前状态卡片 ──
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2 = st.columns(2)
         col1.metric("当前PE", data['current_pe'])
-        col2.metric("近15年PE分位值", f"{data['percentile']:.1f}%")
-
-        # 如果有中证指数官方PE，额外显示
-        csi_pe = data.get('csi_pe')
-        if csi_pe:
-            col1.metric("中证指数官方PE", csi_pe,
-                        delta=round(csi_pe - data['current_pe'], 2))
+        col2.metric("近15年分位值", f"{data['percentile']:.1f}%")
 
         pct = data['percentile']
         if pct <= 20:
             signal = "🔴 买入区间"
-            signal_help = f"PE ≤ {data['buy_threshold']}，处于近15年低估区，建议分批买入"
+            signal_help = f"PE ≤ {data['buy_threshold']}，低估区，建议分批买入"
         elif pct >= 80:
             signal = "🟢 卖出区间"
-            signal_help = f"PE ≥ {data['sell_threshold']}，处于近15年高估区，建议卖出"
+            signal_help = f"PE ≥ {data['sell_threshold']}，高估区，建议卖出"
         else:
             signal = "⚪ 持有/观望"
-            signal_help = "PE处于中间区间，建议持有不动"
-        col3.metric("当前信号", signal)
-        col4.metric("数据源", data.get('source', '—'))
-
+            signal_help = "中间区间，建议持有不动"
+        st.metric("当前信号", signal)
         st.info(signal_help)
 
-        # 数据源差异说明
-        if csi_pe and abs(csi_pe - data['current_pe']) > 0.5:
-            st.caption(
-                f"📌 **数据说明**：当前PE因数据源不同存在差异。"
-                f"「中证指数」为官方数据({csi_pe})，"
-                f"「{data.get('source','')}」({data['current_pe']})主要用于计算历史分位值。"
-                f"主流平台（且慢、雪球等）及本图表使用前者，分值略有不同属正常现象。"
-                f"分位值反映近15年估值相对位置，趋势判断不变。"
-            )
-
-        # ── PE分位值仪表盘 ──
         st.subheader("PE分位值仪表盘")
         st.progress(pct / 100, text=f"当前处于近15年 {pct:.1f}% 位置")
 
-        col_l, col_m, col_r = st.columns(3)
+        col_l, col_r = st.columns(2)
         col_l.metric("买入阈值(20%)", f"PE ≤ {data['buy_threshold']}")
-        csi_pe = data.get('csi_pe')
-        if csi_pe:
-            col_m.metric("当前PE", csi_pe,
-                         delta=round(csi_pe - data['current_pe'], 2))
-        else:
-            col_m.metric("当前PE", data['current_pe'])
         col_r.metric("卖出阈值(80%)", f"PE ≥ {data['sell_threshold']}")
 
-        # ── PE走势与信号图 ──
-        st.subheader("PE分位值走势（近15年）")
-
-        df_chart = df[['date', data['pe_col']]].copy()
-        df_chart.columns = ['date', 'PE']
-        df_chart['PE分位值'] = df_chart['PE'].rank(pct=True) * 100
-        df_chart['买入区'] = df_chart['PE分位值'].apply(lambda x: x if x <= 20 else None)
-        df_chart['卖出区'] = df_chart['PE分位值'].apply(lambda x: x if x >= 80 else None)
-
-        # 图表：中文月份，买入区=红色，卖出区=绿色
-        chart_data = df_chart[['date', 'PE分位值', '买入区', '卖出区']].copy()
-        base = alt.Chart(chart_data).encode(
-            x=alt.X('date:T', axis=alt.Axis(format='%Y年%m月', title=None, labelAngle=-45,
-                     labelFontSize=11, grid=False)),
-        )
-        # 主曲线
-        main_line = base.mark_line(
-            strokeWidth=2, color='#3a6ea5', point=False,
-        ).encode(
-            y=alt.Y('PE分位值:Q', title='分位值(%)', scale=alt.Scale(domain=[0, 100])),
-        )
-        # 买入区(红色) - 分位值≤20%
-        buy_area = base.mark_area(
-            color='#d62728', opacity=0.15,
-        ).encode(y='买入区:Q')
-        buy_line = base.mark_line(
-            strokeWidth=2, color='#d62728', strokeDash=[4, 3],
-        ).encode(y='买入区:Q')
-        # 卖出区(绿色) - 分位值≥80%
-        sell_area = base.mark_area(
-            color='#2ca02c', opacity=0.15,
-        ).encode(y='卖出区:Q')
-        sell_line = base.mark_line(
-            strokeWidth=2, color='#2ca02c', strokeDash=[4, 3],
-        ).encode(y='卖出区:Q')
-        # 20%和80%参考线
-        rule_layer = alt.Chart(pd.DataFrame({'y': [20, 80]})).mark_rule(
-            stroke='#888', strokeWidth=0.8, strokeDash=[4, 4], opacity=0.4
-        ).encode(y='y:Q')
-        # 悬浮锚点（方便鼠标悬停）
-        hover_pts = base.mark_circle(strokeWidth=14, stroke='transparent', fill='transparent').encode(
-            y='PE分位值:Q',
-            tooltip=[alt.Tooltip('date:T', format='%Y年%m月%d日'),
-                     alt.Tooltip('PE分位值:Q', title='分位值', format='.1f')],
-        )
-        st.altair_chart(
-            (buy_area + sell_area + main_line + buy_line + sell_line + rule_layer + hover_pts)
-            .interactive(),
-            use_container_width=True,
-        )
-
-        # ── 历史信号表 ──
-        st.subheader("历史信号")
-
-        signals = df[df['buy_signal'] | df['sell_signal']].copy()
-        if not signals.empty:
-            signal_rows = []
-            for _, row in signals.iterrows():
-                signal_type = "🔴 买入" if row['buy_signal'] else "🟢 卖出"
-                pe_val = float(row[data['pe_col']])
-                pct_val = float(df[data['pe_col']].rank(pct=True).loc[row.name] * 100)
-                signal_rows.append({
-                    '日期': row['date'].strftime('%Y-%m-%d'),
-                    '信号': signal_type,
-                    'PE': round(pe_val, 2),
-                    '分位值': f"{pct_val:.1f}%",
-                })
-            st.dataframe(pd.DataFrame(signal_rows), hide_index=True, width='stretch')
-        else:
-            # 用区间边界作为近似信号
-            zones = df[df['zone'] != df['zone'].shift(1)].copy()
-            zone_signals = []
-            for _, row in zones.iterrows():
-                z = row['zone']
-                if z == '买入区':
-                    pct_val = float(df[data['pe_col']].rank(pct=True).loc[row.name] * 100)
-                    zone_signals.append({
-                        '日期': row['date'].strftime('%Y-%m'),
-                        '信号': '🔴 买入',
-                        'PE': round(float(row[data['pe_col']]), 2),
-                        '分位值': f"{pct_val:.1f}%",
-                    })
-                elif z == '卖出区':
-                    pct_val = float(df[data['pe_col']].rank(pct=True).loc[row.name] * 100)
-                    zone_signals.append({
-                        '日期': row['date'].strftime('%Y-%m'),
-                        '信号': '🟢 卖出',
-                        'PE': round(float(row[data['pe_col']]), 2),
-                        '分位值': f"{pct_val:.1f}%",
-                    })
-            if zone_signals:
-                st.dataframe(pd.DataFrame(zone_signals), hide_index=True, width='stretch')
-            else:
-                st.info("近15年未触发买入/卖出信号")
-
-        # ── 操作建议 ──
+        # 操作建议
         st.subheader("操作建议")
         if pct <= 20:
-            st.success(f"当前PE分位值 {pct:.1f}%，处于低估区间。\n\n"
-                       f"**建议**：全仓买入沪深300指数基金（如 110020 易方达沪深300ETF联接），"
-                       f"持有至卖出信号出现。")
+            st.success(f"当前分位值 {pct:.1f}%，低估区间，建议全仓买入沪深300指数基金")
         elif pct >= 80:
-            st.warning(f"当前PE分位值 {pct:.1f}%，处于高估区间。\n\n"
-                       f"**建议**：清仓全部持仓，落袋为安，等待PE分位值回落至20%以下再买入。")
+            st.warning(f"当前分位值 {pct:.1f}%，高估区间，建议清仓")
         else:
-            st.info(f"当前PE分位值 {pct:.1f}%，处于中间区间。\n\n"
-                    f"**建议**：保持现有持仓不动，既不加仓也不减仓。每月定投可继续，但无需额外操作。")
+            st.info(f"当前分位值 {pct:.1f}%，中间区间，保持持仓不动")
 
     elif 'csi300_loaded' not in st.session_state:
-        st.info("点击「刷新数据」按钮，获取沪深300近15年PE分位值数据")
+        st.info("点击「刷新数据」获取估值数据")
 
 
 # ── 底部 ──
 st.divider()
-st.caption("⚠️ 本工具仅供学习参考，不构成投资建议。股市有风险，投资需谨慎。")
+st.caption("⚠️ 仅供学习参考，不构成投资建议")
